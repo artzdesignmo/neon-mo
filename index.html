@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Mo — A Neon Sign Studio That Glows As You Type</title>
+<meta name="description" content="Neon Mo: a free, offline, single-file neon sign studio. Type text, pick a colour and font, watch it glow, flicker and export as PNG.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Noto+Sans+TC:wght@400;500;700&family=Monoton&family=Pacifico&family=Caveat:wght@600&family=Orbitron:wght@600&display=swap" rel="stylesheet">
+<style>
+/* OpenX design spec: default light silver-grey, white / silver / black switch, saved in localStorage */
+:root{--bg:#e9e9e7;--panel:#f4f4f2;--card:#ffffff;--ink:#222222;--muted:#6f6d68;--line:#d8d8d4;--accent:#ff2e88;--silver:#8a867e}
+body[data-theme="white"]{--bg:#ffffff;--panel:#f7f7f7;--card:#ffffff;--line:#e2e2e2}
+body[data-theme="black"]{--bg:#171717;--panel:#1f1f1f;--card:#242424;--ink:#ececec;--muted:#a8a8a8;--line:#333}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,"Noto Sans TC",system-ui,sans-serif}
+h1,h2,.dela{font-family:"Dela Gothic One","Noto Sans TC",sans-serif;font-weight:400}
+header.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header.top h1{font-size:22px;margin:0;letter-spacing:.5px}
+header.top h1 span{color:var(--silver)}
+header.top .tag{font-size:12px;color:var(--muted);max-width:360px}
+.spacer{flex:1}
+button,select,input,textarea{font:inherit}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 13px;cursor:pointer;font-size:13px}
+.btn:hover{border-color:var(--silver)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.acc{background:var(--accent);color:#fff;border-color:var(--accent)}
+.iconbtn{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:15px;color:var(--silver);display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+main{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px;align-items:start}
+@media(max-width:900px){main{grid-template-columns:1fr}header.top .tag{display:none}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
+.panel h2{font-size:15px;margin:4px 0 10px}
+.panel h3{font-size:13px;margin:16px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+label{font-size:12px;color:var(--muted);display:block;margin:8px 0 3px}
+input[type=text],textarea,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+textarea{resize:vertical;min-height:64px}
+input[type=range]{width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1;min-width:0}
+.chipbtn{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 11px;cursor:pointer;font-size:12px;color:var(--ink)}
+.chipbtn.on{border-color:var(--accent);color:var(--accent)}
+.swatch{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+.swatch.on{border-color:var(--ink)}
+.presetgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.preset{border:1px solid var(--line);border-radius:10px;padding:9px;cursor:pointer;background:var(--card);text-align:center;font-size:13px}
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px}
+canvas#sign{width:100%;max-width:900px;height:auto;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.25);background:#111;display:block}
+.hint{font-size:12px;color:var(--muted);text-align:center;max-width:640px}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.stat{flex:1;min-width:90px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}
+.stat b{font-size:18px;display:block}.stat span{font-size:11px;color:var(--muted)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50}
+.modal.open{display:flex}
+.modal .box{background:var(--card);color:var(--ink);border-radius:16px;padding:22px;max-width:420px;width:92%}
+</style>
+</head>
+<body data-theme="silver">
+<header class="top">
+  <h1>NEON <span>MO</span></h1>
+  <span class="tag" id="tagline">A neon sign studio that glows as you type.</span>
+  <div class="spacer"></div>
+  <button class="btn" id="shuffleBtn">🎲 Shuffle</button>
+  <button class="btn primary" id="exportBtn">↓ PNG</button>
+  <button class="btn acc" id="proBtn">◆ Pro</button>
+  <a class="iconbtn" href="https://buymeacoffee.com/whynotartmoney" target="_blank" rel="noopener" title="Buy Me a Coffee">☕</a>
+  <button class="iconbtn" id="themeBtn" title="Theme: white / silver / black">◐</button>
+  <button class="iconbtn" id="langBtn" title="EN / 繁中">EN</button>
+</header>
+<main>
+  <section class="panel">
+    <h2 id="edTitle">Design your sign</h2>
+    <div class="stats">
+      <div class="stat"><b id="stChars">0</b><span id="stCharsL">Characters</span></div>
+      <div class="stat"><b id="stLines">1</b><span id="stLinesL">Lines</span></div>
+      <div class="stat"><b id="stTube">0m</b><span id="stTubeL">Tube (est.)</span></div>
+    </div>
+    <label id="lText">Sign text</label>
+    <textarea id="fText">OPEN
+all night</textarea>
+    <h3 id="presetTitle">Presets</h3>
+    <div class="presetgrid" id="presetGrid"></div>
+    <h3 id="fontTitle">Tube font</h3>
+    <select id="fFont"></select>
+    <h3 id="colorTitle">Neon colour</h3>
+    <div class="row" id="colorGrid"></div>
+    <h3 id="styleTitle">Tube style</h3>
+    <div class="row" id="styleGrid"></div>
+    <h3 id="bgTitle">Wall</h3>
+    <div class="row" id="bgGrid"></div>
+    <label id="lGlow">Glow</label>
+    <input type="range" id="fGlow" min="10" max="100" value="70">
+    <label id="lSize">Size</label>
+    <input type="range" id="fSize" min="50" max="130" value="100">
+    <h3 id="animTitle">Animation</h3>
+    <div class="row" id="animGrid"></div>
+    <label id="lSpeed">Animation speed</label>
+    <input type="range" id="fSpeed" min="20" max="200" value="100">
+    <p class="hint" id="privNote">Everything runs in your browser. Nothing is uploaded — your sign is saved only in this browser's localStorage.</p>
+  </section>
+  <section class="stage">
+    <canvas id="sign" width="900" height="600"></canvas>
+    <p class="hint" id="stageHint">Tip: type, pick a colour, then Download PNG. Rainbow animation and 2048px HD export are OpenX Pro.</p>
+  </section>
+</main>
+<div class="modal" id="proModal"><div class="box">
+  <h2 id="proTitle" style="margin-top:0">OpenX Pro</h2>
+  <p id="proText">Rainbow cycle animation and 2048px HD export are OpenX Pro features. Enter your Pro key to unlock them on this device.</p>
+  <input type="text" id="proKey" placeholder="Pro key" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">
+  <p id="proMsg" style="font-size:13px;color:#b7791f"></p>
+  <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+    <button class="btn primary" id="proUnlock">Unlock</button>
+    <a class="btn" href="https://buymeacoffee.com/whynotartmoney" target="_blank" rel="noopener">Get a Pro key</a>
+    <button class="btn" id="proClose">Close</button>
+  </div>
+</div></div>
+<script>
+/* ---------- Neon Mo: canvas neon engine. All rendering is original code. ---------- */
+const FONTS = [
+  { id: "dela", name: "Dela Gothic", zh: "粗黑", css: '"Dela Gothic One","Noto Sans TC",sans-serif' },
+  { id: "monoton", name: "Monoton", zh: "霓虹管", css: '"Monoton",cursive' },
+  { id: "pacifico", name: "Pacifico", zh: "手寫", css: '"Pacifico",cursive' },
+  { id: "caveat", name: "Caveat", zh: "隨手寫", css: '"Caveat",cursive' },
+  { id: "orbitron", name: "Orbitron", zh: "未來", css: '"Orbitron",sans-serif' },
+  { id: "sans", name: "Clean Sans", zh: "簡潔", css: '"Noto Sans TC",sans-serif' }
+];
+const COLORS = [
+  { id: "pink", hex: "#ff2e88", zh: "粉紅" }, { id: "cyan", hex: "#00e5ff", zh: "青藍" },
+  { id: "lime", hex: "#a6ff00", zh: "螢光綠" }, { id: "amber", hex: "#ffb300", zh: "琥珀" },
+  { id: "purple", hex: "#b967ff", zh: "紫" }, { id: "red", hex: "#ff2d2d", zh: "紅" },
+  { id: "blue", hex: "#2e7bff", zh: "藍" }, { id: "green", hex: "#00e676", zh: "綠" },
+  { id: "orange", hex: "#ff6d00", zh: "橙" }, { id: "white", hex: "#f5f5f5", zh: "白" }
+];
+const STYLES = [{ id: "classic", en: "Classic", zh: "經典" }, { id: "bold", en: "Bold tube", zh: "粗管" }, { id: "outline", en: "Outline", zh: "空心" }];
+const WALLS = [{ id: "brick", en: "Brick", zh: "磚牆" }, { id: "dark", en: "Dark wall", zh: "暗牆" }, { id: "night", en: "Night sky", zh: "夜空" }, { id: "concrete", en: "Concrete", zh: "水泥" }];
+const ANIMS = [{ id: "steady", en: "Steady", zh: "恆亮", pro: false }, { id: "pulse", en: "Pulse", zh: "呼吸", pro: false }, { id: "flicker", en: "Flicker", zh: "閃爍", pro: false }, { id: "rainbow", en: "Rainbow ◆", zh: "彩虹 ◆", pro: true }];
+const PRESETS = [
+  { name: "OPEN", text: "OPEN\nall night", font: "monoton", color: "pink", anim: "flicker", wall: "brick" },
+  { name: "Café", text: "Café\n& dreams", font: "pacifico", color: "amber", anim: "pulse", wall: "brick" },
+  { name: "Good vibes", text: "good\nvibes", font: "caveat", color: "lime", anim: "steady", wall: "dark" },
+  { name: "Dream big", text: "DREAM\nBIG", font: "dela", color: "cyan", anim: "pulse", wall: "night" },
+  { name: "Love", text: "love\nwins", font: "pacifico", color: "red", anim: "steady", wall: "dark" },
+  { name: "Bar", text: "BAR\n24h", font: "orbitron", color: "purple", anim: "flicker", wall: "concrete" }
+];
+let lang = "en", theme = "silver";
+let S = { text: "OPEN\nall night", font: "monoton", color: "pink", style: "classic", wall: "brick", glow: 70, size: 100, anim: "flicker", speed: 100 };
+try {
+  const saved = JSON.parse(localStorage.getItem("neon-mo") || "null");
+  if (saved && typeof saved.text === "string") S = Object.assign(S, saved);
+  lang = localStorage.getItem("neon-mo-lang") || "en";
+  theme = localStorage.getItem("neon-mo-theme") || "silver";
+} catch (e) {}
+const STR = {
+  en: { tag: "A neon sign studio that glows as you type.", ed: "Design your sign", chars: "Characters", lines: "Lines", tube: "Tube (est.)", text: "Sign text", presets: "Presets", font: "Tube font", color: "Neon colour", style: "Tube style", bg: "Wall", glow: "Glow", size: "Size", anim: "Animation", speed: "Animation speed", priv: "Everything runs in your browser. Nothing is uploaded — your sign is saved only in this browser's localStorage.", tip: "Tip: type, pick a colour, then Download PNG. Rainbow animation and 2048px HD export are OpenX Pro.", proT: "OpenX Pro", proX: "Rainbow cycle animation and 2048px HD export are OpenX Pro features. Enter your Pro key to unlock them on this device." },
+  zh: { tag: "打字即發光嘅霓虹燈招牌工作室。", ed: "設計你嘅招牌", chars: "字數", lines: "行數", tube: "燈管（估算）", text: "招牌文字", presets: "預設", font: "燈管字體", color: "霓虹顏色", style: "燈管款式", bg: "牆身", glow: "光暈", size: "大細", anim: "動畫", speed: "動畫速度", priv: "全部喺瀏覽器內運行，唔會上傳——招牌只儲存喺呢個瀏覽器嘅 localStorage。", tip: "提示：打字、揀顏色，之後下載 PNG。彩虹動畫同 2048px 高清匯出係 OpenX Pro 功能。", proT: "OpenX Pro", proX: "彩虹循環動畫同 2048px 高清匯出係 OpenX Pro 功能。輸入你嘅 Pro key 喺呢部裝置解鎖。" }
+};
+const T = k => (STR[lang] || STR.en)[k];
+const $ = id => document.getElementById(id);
+const isPro = () => { try { return localStorage.getItem("openx-pro-ok") === "1"; } catch (e) { return false; } };
+const colorHex = () => (COLORS.find(c => c.id === S.color) || COLORS[0]).hex;
+const fontCss = () => (FONTS.find(f => f.id === S.font) || FONTS[0]).css;
+function save() { try { localStorage.setItem("neon-mo", JSON.stringify(S)); localStorage.setItem("neon-mo-lang", lang); localStorage.setItem("neon-mo-theme", theme); } catch (e) {} }
+/* deterministic pseudo-random from integer seed (stable per frame, no shimmer) */
+function hash(n) { let x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+function lighten(hex, amt) {
+  const n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const m = v => Math.round(v + (255 - v) * amt);
+  return "rgb(" + m(r) + "," + m(g) + "," + m(b) + ")";
+}
+/* brightness factor for the current animation at time t (seconds) */
+function brightness(t) {
+  const sp = S.speed / 100;
+  if (S.anim === "pulse") return 0.82 + 0.18 * Math.sin(t * 2.2 * sp);
+  if (S.anim === "flicker") {
+    const slot = Math.floor(t * 11 * sp), h = hash(slot);
+    if (h < 0.10) return 0.2;
+    if (h < 0.20) return 0.55;
+    return 0.95 + 0.05 * Math.sin(t * 30 * sp);
+  }
+  return 1;
+}
+function activeColor(t) {
+  if (S.anim === "rainbow" && isPro()) return "hsl(" + Math.floor((t * 45) % 360) + ",100%,62%)";
+  return colorHex();
+}
+function drawWall(ctx, w, h) {
+  if (S.wall === "brick") {
+    ctx.fillStyle = "#1c1512"; ctx.fillRect(0, 0, w, h);
+    const bh = 50, bw = 112;
+    for (let row = 0, y = 0; y < h + bh; y += bh, row++) {
+      const off = (row % 2) * bw / 2;
+      for (let x = -bw + off; x < w + bw; x += bw) {
+        const v = hash(row * 97 + Math.round(x)) * 22;
+        ctx.fillStyle = "rgb(" + Math.round(52 + v) + "," + Math.round(34 + v * 0.6) + "," + Math.round(30 + v * 0.5) + ")";
+        ctx.fillRect(x + 3, y + 3, bw - 6, bh - 6);
+      }
+    }
+  } else if (S.wall === "night") {
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, "#0b1030"); g.addColorStop(1, "#241040"); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "rgba(255,255,255,.8)";
+    for (let i = 0; i < 90; i++) { const x = hash(i * 3.1) * w, y = hash(i * 7.7) * h * 0.7, r = 0.6 + hash(i * 13.3) * 1.4; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+  } else if (S.wall === "concrete") {
+    ctx.fillStyle = "#262626"; ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2600; i++) { const v = hash(i * 1.7); ctx.fillStyle = v > 0.5 ? "rgba(255,255,255,.05)" : "rgba(0,0,0,.18)"; ctx.fillRect(hash(i * 3.3) * w, hash(i * 5.9) * h, 2, 2); }
+  } else {
+    ctx.fillStyle = "#141414"; ctx.fillRect(0, 0, w, h);
+  }
+  /* vignette: sign always reads against a darker centre edge */
+  const vg = ctx.createRadialGradient(w / 2, h / 2, h * 0.3, w / 2, h / 2, w * 0.75);
+  vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.5)");
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+}
+function drawSign(ctx, w, h, t) {
+  drawWall(ctx, w, h);
+  const lines = (S.text || "NEON").split("\n").slice(0, 3);
+  const col = activeColor(t), bright = brightness(t);
+  const glow = S.glow * bright;
+  /* fit: start large, shrink until the widest line fits 88% of width */
+  let px = 150 * (S.size / 100) * (w / 900);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const setFont = s => { ctx.font = s + "px " + fontCss(); };
+  setFont(px);
+  let widest = Math.max.apply(null, lines.map(l => ctx.measureText(l || " ").width));
+  while (widest > w * 0.88 && px > 20) { px -= 4; setFont(px); widest = Math.max.apply(null, lines.map(l => ctx.measureText(l || " ").width)); }
+  const lineH = px * 1.18, totalH = lineH * lines.length, startY = h / 2 - totalH / 2 + lineH / 2;
+  ctx.save(); ctx.globalAlpha = Math.max(0.15, Math.min(1, bright));
+  lines.forEach((line, i) => {
+    const y = startY + i * lineH;
+    const draw = (fill, stroke, lw, blur, shadow) => {
+      ctx.shadowColor = shadow || col; ctx.shadowBlur = blur;
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.strokeText(line, w / 2, y); }
+      if (fill) { ctx.fillStyle = fill; ctx.fillText(line, w / 2, y); }
+    };
+    /* halo passes, then core: bright centre line over coloured tube */
+    draw(col, null, 0, glow * 1.4, col);
+    draw(col, null, 0, glow * 0.55, col);
+    if (S.style === "outline") {
+      ctx.shadowBlur = glow * 0.8; ctx.shadowColor = col;
+      ctx.strokeStyle = lighten(col === "#f5f5f5" ? "#ff2e88" : col, 0.55); ctx.lineWidth = Math.max(2, px * 0.035);
+      ctx.strokeText(line, w / 2, y);
+    } else {
+      const coreW = S.style === "bold" ? Math.max(3, px * 0.055) : Math.max(2, px * 0.028);
+      ctx.shadowBlur = glow * 0.35; ctx.shadowColor = col;
+      ctx.strokeStyle = lighten(col, 0.75); ctx.lineWidth = coreW; ctx.strokeText(line, w / 2, y);
+      ctx.shadowBlur = 0; ctx.fillStyle = lighten(col, 0.25); ctx.fillText(line, w / 2, y);
+      /* thin white-hot centre */
+      ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.lineWidth = Math.max(1, px * 0.008);
+      ctx.strokeText(line, w / 2, y);
+    }
+  });
+  ctx.restore();
+  /* mounting: two small wall mounts, purely decorative */
+  ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.arc(w * 0.5 - 150, h * 0.5 - totalH / 2 - 14, 5, 0, 7); ctx.arc(w * 0.5 + 150, h * 0.5 - totalH / 2 - 14, 5, 0, 7); ctx.fill();
+}
+function renderLive() {
+  const cv = $("sign"), ctx = cv.getContext("2d");
+  drawSign(ctx, cv.width, cv.height, performance.now() / 1000);
+  requestAnimationFrame(renderLive);
+}
+function updateStats() {
+  const txt = S.text || "";
+  $("stChars").textContent = txt.replace(/\n/g, "").length;
+  $("stLines").textContent = txt.split("\n").length;
+  $("stTube").textContent = (txt.replace(/\n/g, "").length * 0.42 * (S.size / 100)).toFixed(1) + "m";
+}
+function chipRow(el, items, current, onPick, labelFn) {
+  el.innerHTML = "";
+  items.forEach(it => {
+    const b = document.createElement("button");
+    b.className = "chipbtn" + (current === it.id ? " on" : ""); b.textContent = labelFn(it);
+    b.onclick = () => { if (it.pro && !isPro()) { $("proModal").classList.add("open"); return; } onPick(it.id); save(); renderControls(); };
+    el.append(b);
+  });
+}
+function renderControls() {
+  $("fText").value = S.text;
+  const fs = $("fFont"); fs.innerHTML = "";
+  FONTS.forEach(f => { const o = document.createElement("option"); o.value = f.id; o.textContent = lang === "zh" ? f.zh + " · " + f.name : f.name; o.selected = S.font === f.id; fs.append(o); });
+  const cg = $("colorGrid"); cg.innerHTML = "";
+  COLORS.forEach(c => { const s = document.createElement("button"); s.className = "swatch" + (S.color === c.id ? " on" : ""); s.style.background = c.hex; s.title = lang === "zh" ? c.zh : c.id; s.setAttribute("aria-label", c.id); s.onclick = () => { S.color = c.id; save(); renderControls(); }; cg.append(s); });
+  chipRow($("styleGrid"), STYLES, S.style, v => { S.style = v; }, it => lang === "zh" ? it.zh : it.en);
+  chipRow($("bgGrid"), WALLS, S.wall, v => { S.wall = v; }, it => lang === "zh" ? it.zh : it.en);
+  chipRow($("animGrid"), ANIMS, S.anim, v => { S.anim = v; }, it => lang === "zh" ? it.zh : it.en);
+  const pg = $("presetGrid"); pg.innerHTML = "";
+  PRESETS.forEach(p => { const b = document.createElement("button"); b.className = "preset"; b.textContent = p.name; b.onclick = () => { S.text = p.text; S.font = p.font; S.color = p.color; S.anim = p.anim; S.wall = p.wall; save(); renderControls(); }; pg.append(b); });
+  $("fGlow").value = S.glow; $("fSize").value = S.size; $("fSpeed").value = S.speed;
+  updateStats();
+}
+function applyLang() {
+  $("tagline").textContent = T("tag"); $("edTitle").textContent = T("ed");
+  $("stCharsL").textContent = T("chars"); $("stLinesL").textContent = T("lines"); $("stTubeL").textContent = T("tube");
+  $("lText").textContent = T("text"); $("presetTitle").textContent = T("presets"); $("fontTitle").textContent = T("font");
+  $("colorTitle").textContent = T("color"); $("styleTitle").textContent = T("style"); $("bgTitle").textContent = T("bg");
+  $("lGlow").textContent = T("glow"); $("lSize").textContent = T("size"); $("animTitle").textContent = T("anim");
+  $("lSpeed").textContent = T("speed"); $("privNote").textContent = T("priv"); $("stageHint").textContent = T("tip");
+  $("proTitle").textContent = T("proT"); $("proText").textContent = T("proX");
+  $("langBtn").textContent = lang === "en" ? "EN" : "繁";
+  document.documentElement.lang = lang === "en" ? "en" : "zh-Hant";
+  renderControls();
+}
+$("fText").oninput = e => { S.text = e.target.value.slice(0, 60); save(); updateStats(); };
+$("fFont").onchange = e => { S.font = e.target.value; save(); };
+$("fGlow").oninput = e => { S.glow = +e.target.value; save(); };
+$("fSize").oninput = e => { S.size = +e.target.value; save(); updateStats(); };
+$("fSpeed").oninput = e => { S.speed = +e.target.value; save(); };
+$("shuffleBtn").onclick = () => {
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const p = pick(PRESETS);
+  S.text = p.text; S.font = pick(FONTS).id; S.color = pick(COLORS).id;
+  S.wall = pick(WALLS).id; S.style = pick(STYLES).id;
+  S.anim = pick(ANIMS.filter(a => !a.pro)).id;
+  save(); renderControls();
+};
+$("exportBtn").onclick = () => {
+  const hd = isPro(), w = hd ? 2048 : 1024, h = Math.round(w * 2 / 3);
+  const off = document.createElement("canvas"); off.width = w; off.height = h;
+  drawSign(off.getContext("2d"), w, h, performance.now() / 1000);
+  off.toBlob(b => {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(b);
+    a.download = "neon-mo" + (hd ? "-hd" : "") + ".png"; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }, "image/png");
+};
+$("themeBtn").onclick = () => { theme = theme === "silver" ? "black" : theme === "black" ? "white" : "silver"; document.body.dataset.theme = theme; save(); };
+$("langBtn").onclick = () => { lang = lang === "en" ? "zh" : "en"; save(); applyLang(); };
+$("proBtn").onclick = () => $("proModal").classList.add("open");
+$("proClose").onclick = () => $("proModal").classList.remove("open");
+$("proUnlock").onclick = async () => {
+  const key = $("proKey").value.trim(); if (!key) return; $("proMsg").textContent = "Checking…";
+  try {
+    const r = await fetch("https://openx-mo.vercel.app/api/pro/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
+    const j = await r.json();
+    if (j.valid) { try { localStorage.setItem("openx-pro-ok", "1"); localStorage.setItem("openx-pro", key); } catch (e) {} $("proModal").classList.remove("open"); renderControls(); }
+    else $("proMsg").textContent = "That key did not validate.";
+  } catch (e) { $("proMsg").textContent = "Could not reach the validation service — check your connection and try again."; }
+};
+document.body.dataset.theme = theme;
+applyLang();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => {});
+requestAnimationFrame(renderLive);
+</script>
+</body>
+</html>
